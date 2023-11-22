@@ -19,6 +19,7 @@ from PIL import Image
 import numpy as np
 import pandas as pd
 import yaml
+import random
 
 from deeplabcut.pose_estimation_tensorflow import training
 from deeplabcut.utils import (
@@ -296,6 +297,11 @@ def check_labels(
                 color_by = "individual" if visualizeindividuals else "bodypart"
             else:  # for single animal projects
                 color_by = "bodypart"
+            if '.ufmf' in folder:
+                ## Randonly selected 25 images to plot
+                print('This is ufmf video. Randomly selected 25 images to plot.')
+                rand_int = random.sample(range(len(DataCombined)), 25)
+                DataCombined = DataCombined.iloc[rand_int]
 
             visualization.make_labeled_images_from_dataframe(
                 DataCombined,
@@ -399,7 +405,10 @@ def _robust_path_split(path):
         parent, file = splits
     else:
         raise('Unknown filepath split for path {}'.format(path))
+
     filename, ext = os.path.splitext(file)
+    if '.ufmf' in file:
+        filename = filename+ext
     return parent, filename, ext
 
 

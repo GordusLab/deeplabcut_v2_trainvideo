@@ -18,7 +18,7 @@ from skimage import io, color
 from tqdm import trange
 
 from deeplabcut.utils.auxiliaryfunctions import attempttomakefolder
-
+from motmot.SpiderMovie import SpiderMovie
 
 def get_cmap(n, name="hsv"):
     """Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
@@ -305,14 +305,22 @@ def make_labeled_images_from_dataframe(
     attempttomakefolder(tmpfolder)
     images_list = images.to_list()
     ic = io.imread_collection(images_list)
-
-    h, w = ic[0].shape[:2]
-    all_same_shape = True
-    for array in ic[1:]:
-        if array.shape[:2] != (h, w):
-            all_same_shape = False
-            break
-
+    if len(ic) !=0:
+        h, w = ic[0].shape[:2]
+        all_same_shape = True
+        for array in ic[1:]:
+            if array.shape[:2] != (h, w):
+                all_same_shape = False
+                break
+        temp_len = len(ic)
+    else:
+        vid_name = images_list[0].split('labeled-data\\')[1].split('.ufmf\\')[0] + '.ufmf'
+        n_frame = int(images_list[0].split('.ufmf\\')[1])
+        basepath = images_list[0].split('\\\\')[0]
+        mov = SpiderMovie(os.path.join(basepath, 'raw', vid_name))  ## put video name
+        h, w = mov.shape[1:3]
+        all_same_shape = True
+        temp_len = len(df)
     xy = df.values.reshape((df.shape[0], -1, 2))
     segs = xy[:, ind_bones].swapaxes(1, 2)
 
@@ -324,13 +332,23 @@ def make_labeled_images_from_dataframe(
         pts = [ax.plot([], [], keypoint, ms=s, alpha=alpha, color=c)[0] for c in colors]
         coll = LineCollection([], colors=cfg["skeleton_color"], alpha=alpha)
         ax.add_collection(coll)
-        for i in trange(len(ic)):
-            filename = ic.files[i]
+        for i in trange(temp_len):
+            if len(ic)==0:
+                filename = images_list[i]
+                vid_name = filename.split('labeled-data\\')[1].split('.ufmf\\')[0] + '.ufmf'
+                n_frame = int(filename.split('.ufmf\\')[1])
+                basepath = filename.split('\\\\')[0]
+                mov = SpiderMovie(os.path.join(basepath, 'raw', vid_name))  ## put video name
+                img = mov[n_frame]
+            else:
+                filename = ic.files[i]
+                img = ic[i]
             ind = images_list.index(filename)
             coords = xy[ind]
-            img = ic[i]
+
+
             if img.ndim == 2 or img.shape[-1] == 1:
-                img = color.gray2rgb(ic[i])
+                img = color.gray2rgb(img)
             im.set_data(img)
             for pt, coord in zip(pts, coords):
                 pt.set_data(*coord)
