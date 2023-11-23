@@ -20,7 +20,8 @@ import numpy as np
 import pandas as pd
 import yaml
 import random
-
+from tqdm import tqdm as tqdm
+from motmot.SpiderMovie import SpiderMovie
 from deeplabcut.pose_estimation_tensorflow import training
 from deeplabcut.utils import (
     auxiliaryfunctions,
@@ -646,7 +647,7 @@ def read_image_shape_fast(path):
         return len(img.getbands()), height, width
 
 
-def format_training_data(df, train_inds, nbodyparts, project_path):
+def format_training_data(df, train_inds, nbodyparts, project_path, cfg):
     train_data = []
     matlab_data = []
 
@@ -655,12 +656,21 @@ def format_training_data(df, train_inds, nbodyparts, project_path):
         outer[0, 0] = array.astype("int64")
         return outer
 
-    for i in train_inds:
+    for i in tqdm(train_inds):
         data = dict()
         filename = df.index[i]
         data["image"] = filename
-        img_shape = read_image_shape_fast(os.path.join(project_path, filename))
-        data["size"] = img_shape
+        if '.ufmf' in filename:
+            vid_name = filename.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+            n_frame = int(filename.split('.ufmf/')[1])
+            mov = SpiderMovie(os.path.join(cfg['project_path'].split(cfg['Task'])[0], 'raw', vid_name))  ## put video name
+            im = mov[n_frame]
+            ## micmic the real image but the size is different
+            img_shape = [0]+[im.shape[1], im.shape[0]]
+            data["size"] = img_shape
+        else:
+            img_shape = read_image_shape_fast(os.path.join(project_path, filename))
+            data["size"] = img_shape
         temp = df.iloc[i].values.reshape(-1, 2)
         joints = np.c_[range(nbodyparts), temp]
         joints = joints[~np.isnan(joints).any(axis=1)].astype(int)
@@ -890,7 +900,7 @@ def create_training_dataset(
                 # Saving data file (convert to training file for deeper cut (*.mat))
                 ################################################################################
                 data, MatlabData = format_training_data(
-                    Data, trainIndices, nbodyparts, project_path
+                    Data, trainIndices, nbodyparts, project_path, cfg
                 )
                 sio.savemat(
                     os.path.join(project_path, datafilename), {"dataset": MatlabData}
