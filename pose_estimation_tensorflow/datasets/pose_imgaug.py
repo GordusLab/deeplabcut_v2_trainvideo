@@ -23,12 +23,13 @@ import random as rand
 import imgaug.augmenters as iaa
 import numpy as np
 import scipy.io as sio
+import cv2
 
 from deeplabcut.utils.auxfun_videos import imread
 from .factory import PoseDatasetFactory
 from .pose_base import BasePoseDataset
 from .utils import DataItem, Batch
-
+from motmot.SpiderMovie import SpiderMovie
 
 @PoseDatasetFactory.register("default")
 @PoseDatasetFactory.register("imgaug")
@@ -295,7 +296,15 @@ class ImgaugPoseDataset(BasePoseDataset):
             im_file = data_item.im_path
 
             logging.debug("image %s", im_file)
-            image = imread(os.path.join(self.cfg["project_path"], im_file), mode="RGB")
+            if '.ufmf' in im_file:
+                vid_name = im_file.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+                vid_name = self.cfg['project_path'] + '/videos/' + vid_name
+                n_frame = int(im_file.split('.ufmf/')[1])
+                mov = SpiderMovie(vid_name)  ## put video name
+                image = mov[n_frame]
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            else:
+                image = imread(os.path.join(self.cfg["project_path"], im_file), mode="RGB")
 
             if self.has_gt:
                 joints = np.copy(data_item.joints)
@@ -436,9 +445,9 @@ class ImgaugPoseDataset(BasePoseDataset):
         for person_id in range(len(coords)):
             for k, j_id in enumerate(joint_id[person_id]):
                 joint_pt = coords[person_id][k, :]
-                j_x = np.asscalar(joint_pt[0])
+                j_x = np.ndarray.item(np.array(joint_pt[0]))
                 j_x_sm = round((j_x - self.half_stride) / self.stride)
-                j_y = np.asscalar(joint_pt[1])
+                j_y = np.ndarray.item(np.array(joint_pt[1]))
                 j_y_sm = round((j_y - self.half_stride) / self.stride)
                 map_j = grid.copy()
                 # Distance between the joint point and each coordinate
@@ -483,9 +492,9 @@ class ImgaugPoseDataset(BasePoseDataset):
         for person_id in range(len(coords)):
             for k, j_id in enumerate(joint_id[person_id]):
                 joint_pt = coords[person_id][k, :]
-                j_x = np.asscalar(joint_pt[0])
+                j_x = np.ndarray.item(np.array(joint_pt[0]))
                 j_x_sm = round((j_x - self.half_stride) / self.stride)
-                j_y = np.asscalar(joint_pt[1])
+                j_y = np.ndarray.item(np.array(joint_pt[1]))
                 j_y_sm = round((j_y - self.half_stride) / self.stride)
                 min_x = round(max(j_x_sm - dist_thresh - 1, 0))
                 max_x = round(min(j_x_sm + dist_thresh + 1, width - 1))
