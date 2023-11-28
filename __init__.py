@@ -70,6 +70,7 @@ from deeplabcut.generate_training_dataset import (
 )
 from deeplabcut.utils import (
     create_labeled_video,
+    create_labeled_ufmfvideo,
     create_video_with_all_detections,
     plot_trajectories,
     auxiliaryfunctions,

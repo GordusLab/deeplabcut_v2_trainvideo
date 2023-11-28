@@ -30,7 +30,7 @@ from matplotlib.collections import LineCollection
 from skimage.draw import disk, line_aa
 from skimage.util import img_as_ubyte
 from tqdm import trange
-
+import pandas as pd
 from deeplabcut.utils import auxiliaryfunctions, auxfun_multianimal, visualization
 from deeplabcut.utils.video_processor import (
     VideoProcessorCV as vp,
@@ -511,6 +511,167 @@ def create_labeled_video(
         pool.map(func, Videos)
 
     os.chdir(start_path)
+
+
+def create_video_fromufmf(cfg,Dataframe,DLCscorer, dataname, vname=None, framestart =0, frameend =3000, pcutoff=0.5,dotsize=12, colormap='rainbow', bodyparts2plot=None):
+    import cv2
+    from tqdm import tqdm
+    from skimage.draw import circle_perimeter, circle
+
+    colorclass = plt.cm.ScalarMappable(cmap=colormap)
+    C = colorclass.to_rgba(np.linspace(0, 1, len(bodyparts2plot)))
+    colors = (C[:, :3] * 255).astype(np.uint8)
+
+    nframes = len(Dataframe.index)
+
+    from motmot.SpiderMovie import SpiderMovie
+    vid_name = cfg['project_path'] + '/videos/'+vname
+    mov = SpiderMovie(vid_name)
+    nx = int(mov.shape[1]) ##width
+    ny = int(mov.shape[2]) ## height
+
+    df_likelihood = np.empty((len(bodyparts2plot), nframes))
+    df_x = np.empty((len(bodyparts2plot), nframes))
+    df_y = np.empty((len(bodyparts2plot), nframes))
+    for bpindex, bp in enumerate(bodyparts2plot):
+        df_likelihood[bpindex, :] = Dataframe[DLCscorer][bp]['likelihood'].values
+        df_x[bpindex, :] = Dataframe[DLCscorer][bp]['x'].values
+        df_y[bpindex, :] = Dataframe[DLCscorer][bp]['y'].values
+
+    if frameend > framestart:
+        buf = np.empty((int(frameend-framestart), nx, ny, 3), np.dtype('uint8'))
+    else:
+        raise Exception("frameend has to be larger than frame start to make a new labeled video.")
+
+    for index in tqdm(range(framestart, frameend)):
+        image = cv2.cvtColor(mov[index], cv2.COLOR_BGR2RGB)
+
+        for bpindex in range(len(bodyparts2plot)):
+            if df_likelihood[bpindex, index] > pcutoff:
+                xc = int(df_x[bpindex, index])
+                yc = int(df_y[bpindex, index])
+                # rr, cc = circle_perimeter(yc,xc,radius)
+                rr, cc = circle(yc, xc, dotsize, shape=(ny, nx))
+                image[rr, cc, :] = colors[bpindex]
+        buf[index] = image
+
+    ##Writing video
+    print('Writing video...')
+    from cv2 import VideoWriter_fourcc
+    fourcc = VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(
+        dataname.split('.h5')[0]+'_labeled.mp4',
+        fourcc, 100, (nx, ny))
+
+    for i in range(len(buf)):
+        out.write(buf[i])
+    out.release()
+
+
+def create_labeled_ufmfvideo(config, videos, videotype='ufmf', shuffle=1, trainingsetindex=0,
+                         Frames2plot=None, delete=False, displayedbodyparts='all', codec='mp4v', outputframerate=None):
+    """
+    Labels the bodyparts in a video. Make sure the video is already analyzed by the function 'analyze_video'
+
+    Parameters
+    ----------
+    config : string
+        Full path of the config.yaml file as a string.
+
+    videos : list
+        A list of strings containing the full paths to videos for analysis or a path to the directory, where all the videos with same extension are stored.
+
+    videotype: string, optional
+        Checks for the extension of the video in case the input to the video is a directory.\n Only videos with this extension are analyzed. The default is ``.avi``
+
+    shuffle : int, optional
+        Number of shuffles of training dataset. Default is set to 1.
+
+    trainingsetindex: int, optional
+        Integer specifying which TrainingsetFraction to use. By default the first (note that TrainingFraction is a list in config.yaml).
+
+    videotype: string, optional
+        Checks for the extension of the video in case the input is a directory.\nOnly videos with this extension are analyzed. The default is ``.avi``
+
+    save_frames: bool
+        If true creates each frame individual and then combines into a video. This variant is relatively slow as
+        it stores all individual frames. However, it uses matplotlib to create the frames and is therefore much more flexible (one can set transparency of markers, crop, and easily customize).
+
+    Frames2plot: List of indices
+        If not None & save_frames=True then the frames corresponding to the index will be plotted. For example, Frames2plot=[0,11] will plot the first and the 12th frame.
+
+    delete: bool
+        If true then the individual frames created during the video generation will be deleted.
+
+    displayedbodyparts: list of strings, optional
+        This select the body parts that are plotted in the video. Either ``all``, then all body parts
+        from config.yaml are used orr a list of strings that are a subset of the full list.
+        E.g. ['hand','Joystick'] for the demo Reaching-Mackenzie-2018-08-30/config.yaml to select only these two body parts.
+
+    codec: codec for labeled video. Options see http://www.fourcc.org/codecs.php [depends on your ffmpeg installation.]
+
+    outputframerate: positive number, output frame rate for labeled video (only available for the mode with saving frames.) By default: None, which results in the original video rate.
+
+    """
+    cfg = auxiliaryfunctions.read_config(config)
+    trainFraction = cfg['TrainingFraction'][trainingsetindex]
+    DLCscorer = auxiliaryfunctions.GetScorerName(cfg, shuffle,
+                                                 trainFraction)  # automatically loads corresponding model (even training iteration based on snapshot index)
+
+    bodyparts = auxiliaryfunctions.IntersectionofBodyPartsandOnesGivenbyUser(cfg, displayedbodyparts)
+
+    Videos = auxiliaryfunctions.Getlistofvideos(videos, videotype)
+    for video in Videos:
+        videofolder = Path(video).parents[0]  # where your folder with videos is.
+        os.chdir(str(videofolder))
+        videotype = Path(video).suffix
+        print("Starting % ", videofolder, videos)
+        if videotype == '.ufmf':
+            vname = str(Path(video).stem + '.ufmf')
+        else:
+            vname = str(Path(video).stem)
+        if os.path.isfile(os.path.join(str(videofolder), vname + DLCscorer[0] + '_labeled.mp4')):
+            print("Labeled video already created.")
+        else:
+            print("Loading ", video, "and data.")
+            dataname = os.path.join(str(videofolder), vname + DLCscorer[0] + '.h5')
+            try:
+                Dataframe = pd.read_hdf(dataname)
+                metadata = auxiliaryfunctions.load_video_metadata(videofolder, vname, DLCscorer[0])
+                # print(metadata)
+                datanames = [dataname]
+            except FileNotFoundError:
+                datanames = [fn for fn in os.listdir(os.curdir) if (vname in fn) and (".h5" in fn) and "resnet" in fn]
+                if len(datanames) == 0:
+                    print("The video was not analyzed with this scorer:", DLCscorer)
+                    print("No other scorers were found, please use the function 'analyze_videos' first.")
+                elif len(datanames) > 0:
+                    print("The video was not analyzed with this scorer:", DLCscorer)
+                    print("Other scorers were found, however:", datanames)
+                    DLCscorer = 'DLC' + (datanames[0].split('DLC')[1]).split('.h5')[0]
+                    print("Creating labeled video for:", DLCscorer, " instead.")
+                    Dataframe = pd.read_hdf(datanames[0])
+                    metadata = auxiliaryfunctions.load_video_metadata(videofolder, vname, DLCscorer[0])
+
+            if len(datanames) > 0:
+                # Loading cropping data used during analysis
+                cropping = metadata['data']["cropping"]
+                [x1, x2, y1, y2] = metadata['data']["cropping_parameters"]
+                print(cropping, x1, x2, y1, y2)
+
+                ### Since ufmf has lots of frames, we don't do save_frames options!
+
+                # if save_frames == True:
+                #     tmpfolder = os.path.join(str(videofolder), 'temp-' + vname)
+                #     auxiliaryfunctions.attempttomakefolder(tmpfolder)
+                #     clip = vp(video)
+                #     # CreateVideoSlow(clip,Dataframe,tmpfolder,cfg["dotsize"],cfg["colormap"],cfg["alphavalue"],cfg["pcutoff"],cfg["cropping"],cfg["x1"],cfg["x2"],cfg["y1"],cfg["y2"],delete,DLCscorer,bodyparts)
+                #     CreateVideoSlow(clip, Dataframe, tmpfolder, cfg["dotsize"], cfg["colormap"], cfg["alphavalue"],
+                #                     cfg["pcutoff"], cropping, x1, x2, y1, y2, delete, DLCscorer, bodyparts,
+                #                     outputframerate, Frames2plot)
+
+
+                create_video_fromufmf(cfg,Dataframe,DLCscorer[0],dataname, vname=vname, framestart =0, frameend =3000, pcutoff=cfg['pcutoff'],dotsize=cfg['dotsize'], colormap=cfg['colormap'], bodyparts2plot=bodyparts)
 
 
 def proc_video(
