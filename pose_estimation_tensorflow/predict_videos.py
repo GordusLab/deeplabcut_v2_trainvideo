@@ -33,6 +33,7 @@ from deeplabcut.pose_estimation_tensorflow.config import load_config
 from deeplabcut.pose_estimation_tensorflow.core import predict
 from deeplabcut.pose_estimation_tensorflow.lib import inferenceutils, trackingutils
 from deeplabcut.utils import auxiliaryfunctions, auxfun_multianimal
+from motmot.SpiderMovie import SpiderMovie
 
 
 ####################################################
@@ -662,7 +663,11 @@ def AnalyzeVideo(
     if destfolder is None:
         destfolder = str(Path(video).parents[0])
     auxiliaryfunctions.attempttomakefolder(destfolder)
-    vname = Path(video).stem
+    #vname = Path(video).stem
+    if '.ufmf' in video:
+        vname = Path(video).stem + '.ufmf'
+    else:
+        vname = Path(video).stem
     try:
         _ = auxiliaryfunctions.load_analyzed_data(destfolder, vname, DLCscorer)
     except FileNotFoundError:
@@ -796,9 +801,30 @@ def GetPosesofFrames(
 
     print("Starting to extract posture")
     if rgb:
-        im = imread(os.path.join(directory, framelist[0]), mode="RGB")
+        temp_file = os.path.join(directory, framelist[0])
+        if '.ufmf' in temp_filename:
+            vid_name = temp_filename.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+            vid_name = 'videos/' + vid_name
+            n_frame = int(temp_filename.split('.ufmf/')[1])
+            mov = SpiderMovie(vid_name)  ## put video name
+            mov = SpiderMovie(os.path.join(cfg['project_path'], vid_name))  ## put video name
+            im = mov[n_frame]
+            im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        else:
+            #im=io.imread(temp_filename,mode='RGB')
+            im = imread(os.path.join(directory, framelist[0]), mode="RGB")
     else:
-        im = imread(os.path.join(directory, framelist[0]))
+        temp_file = os.path.join(directory, framelist[0])
+        if '.ufmf' in temp_filename:
+            vid_name = temp_filename.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+            vid_name = 'videos/' + vid_name
+            n_frame = int(temp_filename.split('.ufmf/')[1])
+            mov = SpiderMovie(vid_name)  ## put video name
+            mov = SpiderMovie(os.path.join(cfg['project_path'], vid_name))  ## put video name
+            im = mov[n_frame]
+
+        else:
+            im = imread(os.path.join(directory, framelist[0]))
 
     ny, nx, nc = np.shape(im)
     print(
@@ -842,9 +868,34 @@ def GetPosesofFrames(
         for counter, framename in enumerate(framelist):
             # frame=imread(os.path.join(directory,framename),mode='RGB')
             if rgb:
-                im = imread(os.path.join(directory, framename), mode="RGB")
+                temp_file = os.path.join(directory, framename)
+                if '.ufmf' in temp_filename:
+                    vid_name = temp_filename.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+                    vid_name = 'videos/' + vid_name
+                    n_frame = int(temp_filename.split('.ufmf/')[1])
+                    mov = SpiderMovie(vid_name)  ## put video name
+                    mov = SpiderMovie(os.path.join(cfg['project_path'], vid_name))  ## put video name
+                    im = mov[n_frame]
+                    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+                else:
+                    # im=io.imread(temp_filename,mode='RGB')
+                    im = imread(os.path.join(directory, framename), mode="RGB")
             else:
-                im = imread(os.path.join(directory, framename))
+                temp_file = os.path.join(directory, framename)
+                if '.ufmf' in temp_filename:
+                    vid_name = temp_filename.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+                    vid_name = 'videos/' + vid_name
+                    n_frame = int(temp_filename.split('.ufmf/')[1])
+                    mov = SpiderMovie(vid_name)  ## put video name
+                    mov = SpiderMovie(os.path.join(cfg['project_path'], vid_name))  ## put video name
+                    im = mov[n_frame]
+
+                else:
+                    im = imread(os.path.join(directory, framename))
+            #if rgb:
+            #    im = imread(os.path.join(directory, framename), mode="RGB")
+            #else:
+            #    im = imread(os.path.join(directory, framename))
 
             if counter % step == 0:
                 pbar.update(step)
@@ -864,9 +915,30 @@ def GetPosesofFrames(
         )  # this keeps all the frames of a batch
         for counter, framename in enumerate(framelist):
             if rgb:
-                im = imread(os.path.join(directory, framename), mode="RGB")
+                temp_file = os.path.join(directory, framename)
+                if '.ufmf' in temp_filename:
+                    vid_name = temp_filename.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+                    vid_name = 'videos/' + vid_name
+                    n_frame = int(temp_filename.split('.ufmf/')[1])
+                    mov = SpiderMovie(vid_name)  ## put video name
+                    mov = SpiderMovie(os.path.join(cfg['project_path'], vid_name))  ## put video name
+                    im = mov[n_frame]
+                    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+                else:
+                    # im=io.imread(temp_filename,mode='RGB')
+                    im = imread(os.path.join(directory, framename), mode="RGB")
             else:
-                im = imread(os.path.join(directory, framename))
+                temp_file = os.path.join(directory, framename)
+                if '.ufmf' in temp_filename:
+                    vid_name = temp_filename.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+                    vid_name = 'videos/' + vid_name
+                    n_frame = int(temp_filename.split('.ufmf/')[1])
+                    mov = SpiderMovie(vid_name)  ## put video name
+                    mov = SpiderMovie(os.path.join(cfg['project_path'], vid_name))  ## put video name
+                    im = mov[n_frame]
+
+                else:
+                    im = imread(os.path.join(directory, framename))
 
             if counter % step == 0:
                 pbar.update(step)
