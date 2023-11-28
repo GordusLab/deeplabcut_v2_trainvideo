@@ -15,7 +15,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
+import cv2
+from motmot.SpiderMovie import SpiderMovie
 
 def pairwisedistances(DataCombined, scorer1, scorer2, pcutoff=-1, bodyparts=None):
     """ Calculates the pairwise Euclidean distance metric over body parts vs. images"""
@@ -787,11 +788,21 @@ def evaluate_network(
                         )
                         print("Running evaluation ...")
                         for imageindex, imagename in tqdm(enumerate(Data.index)):
-                            image = imread(
+                            if '.ufmf' in imagename:
+                                vid_name = imagename.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+                                vid_name = 'videos/' + vid_name
+                                n_frame = int(imagename.split('.ufmf/')[1])
+                                mov = SpiderMovie(os.path.join(cfg['project_path'], vid_name))  ## put video name
+                                image = mov[n_frame]
+                                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                            else:
+                                image = imread(
                                 os.path.join(cfg["project_path"], imagename), mode="RGB"
-                            )
+                                )
                             if scale != 1:
-                                image = imresize(image, scale)
+                                imgage = imresize(image, (
+                                int(image.shape[0] * scale), int(image.shape[1] * scale)))
+                                #image = imresize(image, scale)
 
                             image_batch = data_to_input(image)
                             # Compute prediction with the CNN

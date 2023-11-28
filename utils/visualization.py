@@ -150,7 +150,15 @@ def plot_and_save_labeled_frame(
     scaling=1,
 ):
     image_path = os.path.join(cfg["project_path"], DataCombined.index[ind])
-    frame = io.imread(image_path)
+    if '.ufmf' in image_path:
+        vid_name = image_path.split('labeled-data/')[1].split('.ufmf/')[0] + '.ufmf'
+        vid_name = 'videos/' + vid_name
+        n_frame = int(image_path.split('.ufmf/')[1])
+
+        mov = SpiderMovie(os.path.join(cfg['project_path'], vid_name))  ## put video name
+        frame = mov[n_frame]
+    else:
+        frame = io.imread(image_path)
     if np.ndim(frame) > 2:  # color image!
         h, w, numcolors = np.shape(frame)
     else:
