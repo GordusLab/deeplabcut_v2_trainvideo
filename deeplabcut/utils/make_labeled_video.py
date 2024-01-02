@@ -569,7 +569,7 @@ def create_video_fromufmf(cfg,Dataframe,DLCscorer, dataname, vname=None, framest
 
 
 def create_labeled_ufmfvideo(config, videos, videotype='ufmf', shuffle=1, trainingsetindex=0,
-                         Frames2plot=None, delete=False, displayedbodyparts='all', codec='mp4v', outputframerate=None):
+                         Frames2plot=None, delete=False, displayedbodyparts='all', codec='mp4v', outputframerate=None, frame_start =0, frame_end =3000):
     """
     Labels the bodyparts in a video. Make sure the video is already analyzed by the function 'analyze_video'
 
@@ -671,7 +671,7 @@ def create_labeled_ufmfvideo(config, videos, videotype='ufmf', shuffle=1, traini
                 #                     outputframerate, Frames2plot)
 
 
-                create_video_fromufmf(cfg,Dataframe,DLCscorer[0],dataname, vname=vname, framestart =0, frameend =3000, pcutoff=cfg['pcutoff'],dotsize=cfg['dotsize'], colormap=cfg['colormap'], bodyparts2plot=bodyparts)
+                create_video_fromufmf(cfg,Dataframe,DLCscorer[0],dataname, vname=vname, framestart =frame_start, frameend =frame_end, pcutoff=cfg['pcutoff'],dotsize=cfg['dotsize'], colormap=cfg['colormap'], bodyparts2plot=bodyparts)
 
 
 def proc_video(
