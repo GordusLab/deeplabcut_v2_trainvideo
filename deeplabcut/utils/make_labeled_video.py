@@ -553,7 +553,7 @@ def create_video_fromufmf(cfg,Dataframe,DLCscorer, dataname, vname=None, framest
                 # rr, cc = circle_perimeter(yc,xc,radius)
                 rr, cc = circle(yc, xc, dotsize, shape=(ny, nx))
                 image[rr, cc, :] = colors[bpindex]
-        buf[index] = image
+        buf[index-framestart] = image
 
     ##Writing video
     print('Writing video...')
